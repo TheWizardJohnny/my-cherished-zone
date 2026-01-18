@@ -13,6 +13,7 @@ import WalletPage from "./pages/WalletPage";
 import Shop from "./pages/Shop";
 import Orders from "./pages/Orders";
 import SettingsPage from "./pages/SettingsPage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/dashboard/shop" element={<Shop />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
