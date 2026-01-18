@@ -13,6 +13,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [sponsorId, setSponsorId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { user, signUp, signIn } = useAuth();
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
     
-    const { error } = await signUp(email, password, fullName);
+    const { error } = await signUp(email, password, fullName, sponsorId || undefined);
     
     if (error) {
       toast({
@@ -194,6 +195,20 @@ export default function Auth() {
                         minLength={6}
                         className="bg-muted/50"
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-sponsor">Sponsor ID (Optional)</Label>
+                      <Input
+                        id="signup-sponsor"
+                        type="text"
+                        placeholder="Enter your sponsor's ID"
+                        value={sponsorId}
+                        onChange={(e) => setSponsorId(e.target.value)}
+                        className="bg-muted/50"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        If someone referred you, enter their sponsor ID here
+                      </p>
                     </div>
                     <Button
                       type="submit"
