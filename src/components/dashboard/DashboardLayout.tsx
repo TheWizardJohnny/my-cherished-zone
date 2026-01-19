@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { UserStatusMonitor } from "@/components/UserStatusMonitor";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -43,6 +44,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background dark">
+      {/* User Status Monitor - monitors account status in real-time */}
+      <UserStatusMonitor />
+      
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div

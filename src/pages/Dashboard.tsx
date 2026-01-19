@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,8 @@ import {
   Bell,
   ChevronRight,
   Loader2,
+  Copy,
+  Share2,
 } from "lucide-react";
 
 interface Profile {
@@ -25,6 +28,7 @@ interface Profile {
   total_left_volume: number;
   total_right_volume: number;
   personal_volume: number;
+  referral_id: string | null;
 }
 
 interface Announcement {
@@ -45,12 +49,32 @@ interface Commission {
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [recentCommissions, setRecentCommissions] = useState<Commission[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const copyReferralLink = () => {
+    if (!profile?.referral_id) return;
+    const referralLink = `${window.location.origin}/auth?ref=${profile.referral_id}`;
+    navigator.clipboard.writeText(referralLink);
+    toast({
+      title: "Copied!",
+      description: "Referral link copied to clipboard.",
+    });
+  };
+
+  const copyReferralId = () => {
+    if (!profile?.referral_id) return;
+    navigator.clipboard.writeText(profile.referral_id);
+    toast({
+      title: "Copied!",
+      description: "Referral ID copied to clipboard.",
+    });
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -61,6 +85,58 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchData();
+      
+      // Set up real-time subscription for announcements
+      const announcementsChannel = supabase
+        .channel('announcements-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'announcements',
+            filter: 'active=eq.true'
+          },
+          (payload) => {
+            console.log('Announcement changed:', payload);
+            
+            if (payload.eventType === 'INSERT') {
+              setAnnouncements((prev) => [payload.new as Announcement, ...prev].slice(0, 3));
+            } else if (payload.eventType === 'UPDATE') {
+              setAnnouncements((prev) =>
+                prev.map((a) => (a.id === payload.new.id ? payload.new as Announcement : a))
+              );
+            } else if (payload.eventType === 'DELETE') {
+              setAnnouncements((prev) => prev.filter((a) => a.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe();
+
+      // Set up real-time subscription for profile changes
+      const profileChannel = supabase
+        .channel('dashboard-profile-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Profile changed:', payload);
+            // Update profile with new data (especially referral_id and sponsor_id)
+            setProfile(payload.new as Profile);
+          }
+        )
+        .subscribe();
+
+      // Cleanup subscriptions on unmount
+      return () => {
+        supabase.removeChannel(announcementsChannel);
+        supabase.removeChannel(profileChannel);
+      };
     }
   }, [user]);
 
@@ -171,6 +247,61 @@ export default function Dashboard() {
           </Badge>
         </div>
 
+        {/* Referral Section */}
+        {profile?.referral_id && (
+          <Card className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Share2 className="w-5 h-5 text-primary" />
+                Your Referral Code
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Referral ID */}
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-2">Referral ID</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-4 py-3 bg-background/50 rounded-lg border border-border text-lg font-mono text-primary">
+                      {profile.referral_id}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={copyReferralId}
+                      className="shrink-0"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Referral Link */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Referral Link</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-4 py-3 bg-background/50 rounded-lg border border-border text-sm font-mono overflow-x-auto">
+                    {window.location.origin}/auth?ref={profile.referral_id}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyReferralLink}
+                    className="shrink-0"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                Share your referral link or ID with others to earn commissions when they join and make purchases.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
@@ -278,6 +409,16 @@ export default function Dashboard() {
                         {announcement.priority === "high" && (
                           <Badge variant="destructive" className="text-xs">
                             Important
+                          </Badge>
+                        )}
+                        {announcement.priority === "normal" && (
+                          <Badge variant="secondary" className="text-xs">
+                            Attention
+                          </Badge>
+                        )}
+                        {announcement.priority === "low" && (
+                          <Badge variant="outline" className="text-xs">
+                            News
                           </Badge>
                         )}
                       </div>

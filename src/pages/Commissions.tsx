@@ -46,6 +46,28 @@ export default function Commissions() {
   useEffect(() => {
     if (user) {
       fetchCommissions();
+      
+      // Set up real-time subscription for commissions
+      const commissionsChannel = supabase
+        .channel('user-commissions-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'commissions'
+          },
+          (payload) => {
+            console.log('Commission changed:', payload);
+            // Refetch commissions whenever any commission changes
+            fetchCommissions();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(commissionsChannel);
+      };
     }
   }, [user]);
 

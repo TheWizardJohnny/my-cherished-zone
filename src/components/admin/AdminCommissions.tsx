@@ -20,6 +20,28 @@ export function AdminCommissions() {
 
   useEffect(() => {
     fetchCommissions();
+    
+    // Set up real-time subscription for commissions
+    const commissionsChannel = supabase
+      .channel('admin-commissions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'commissions'
+        },
+        (payload) => {
+          console.log('Commission changed:', payload);
+          // Refetch to get updated data with joins
+          fetchCommissions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(commissionsChannel);
+    };
   }, [statusFilter]);
 
   const fetchCommissions = async () => {

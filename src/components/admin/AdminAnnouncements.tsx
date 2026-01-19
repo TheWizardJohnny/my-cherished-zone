@@ -135,13 +135,13 @@ export function AdminAnnouncements() {
   const getPriorityBadge = (priority: string | null) => {
     switch (priority) {
       case "high":
-        return <Badge variant="destructive">High</Badge>;
+        return <Badge variant="destructive">Important</Badge>;
       case "normal":
-        return <Badge variant="secondary">Normal</Badge>;
+        return <Badge variant="secondary">Attention</Badge>;
       case "low":
-        return <Badge variant="outline">Low</Badge>;
+        return <Badge variant="outline">News</Badge>;
       default:
-        return <Badge variant="secondary">{priority || "Normal"}</Badge>;
+        return <Badge variant="secondary">{priority || "Attention"}</Badge>;
     }
   };
 
@@ -207,9 +207,9 @@ export function AdminAnnouncements() {
                     <SelectValue placeholder="Select priority" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="low">News</SelectItem>
+                    <SelectItem value="normal">Attention</SelectItem>
+                    <SelectItem value="high">Important</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Ghost, Wallet, Shield, ArrowRight, Loader2 } from "lucide-react";
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [sponsorId, setSponsorId] = useState("");
+  const [sponsorId, setSponsorId] = useState(searchParams.get('ref') || "");
+  const [role, setRole] = useState<"user" | "admin">("user");
   const [isLoading, setIsLoading] = useState(false);
   const { user, signUp, signIn } = useAuth();
   const navigate = useNavigate();
@@ -38,10 +40,16 @@ export default function Auth() {
         description: error.message,
       });
     } else {
+      // Store role in localStorage for admin access
+      localStorage.setItem("userRole", role);
       toast({
         title: "Welcome back!",
         description: "Successfully signed in.",
       });
+      // Redirect based on role
+      if (role === "admin") {
+        navigate("/admin");
+      }
     }
     
     setIsLoading(false);
@@ -60,10 +68,16 @@ export default function Auth() {
         description: error.message,
       });
     } else {
+      // Store role in localStorage for admin access
+      localStorage.setItem("userRole", role);
       toast({
         title: "Account created!",
         description: "Welcome to AtomicTrust Ghost Wallet.",
       });
+      // Redirect based on role
+      if (role === "admin") {
+        navigate("/admin");
+      }
     }
     
     setIsLoading(false);
@@ -143,6 +157,18 @@ export default function Auth() {
                         className="bg-muted/50"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-role">Login As</Label>
+                      <select
+                        id="signin-role"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as "user" | "admin")}
+                        className="w-full px-3 py-2 bg-muted/50 border border-input rounded-md text-foreground text-sm"
+                      >
+                        <option value="user">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
                     <Button
                       type="submit"
                       className="w-full gradient-primary text-primary-foreground font-semibold"
@@ -197,18 +223,30 @@ export default function Auth() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-sponsor">Sponsor ID (Optional)</Label>
+                      <Label htmlFor="signup-sponsor">Referral ID (Optional)</Label>
                       <Input
                         id="signup-sponsor"
                         type="text"
-                        placeholder="Enter your sponsor's ID"
+                        placeholder="Enter referral ID"
                         value={sponsorId}
-                        onChange={(e) => setSponsorId(e.target.value)}
+                        onChange={(e) => setSponsorId(e.target.value.toUpperCase())}
                         className="bg-muted/50"
                       />
                       <p className="text-xs text-muted-foreground">
-                        If someone referred you, enter their sponsor ID here
+                        {sponsorId ? `Joining under referral: ${sponsorId}` : 'If someone referred you, enter their referral ID here'}
                       </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-role">Sign Up As</Label>
+                      <select
+                        id="signup-role"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as "user" | "admin")}
+                        className="w-full px-3 py-2 bg-muted/50 border border-input rounded-md text-foreground text-sm"
+                      >
+                        <option value="user">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
                     </div>
                     <Button
                       type="submit"

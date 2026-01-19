@@ -64,6 +64,9 @@ export default function WalletPage() {
   const [withdrawAddress, setWithdrawAddress] = useState("");
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingWallet, setEditingWallet] = useState(false);
+  const [newWalletAddress, setNewWalletAddress] = useState("");
+  const [isSavingWallet, setIsSavingWallet] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -88,6 +91,7 @@ export default function WalletPage() {
       if (profileData) {
         setProfile(profileData);
         setWithdrawAddress(profileData.wallet_address || "");
+        setNewWalletAddress(profileData.wallet_address || "");
 
         // Fetch commissions to calculate balance
         const { data: commissionsData } = await supabase
@@ -183,6 +187,46 @@ export default function WalletPage() {
       });
     } finally {
       setIsWithdrawing(false);
+    }
+  };
+
+  const handleSaveWallet = async () => {
+    if (!newWalletAddress.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid address",
+        description: "Please enter a valid wallet address.",
+      });
+      return;
+    }
+
+    setIsSavingWallet(true);
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ wallet_address: newWalletAddress.trim() })
+        .eq("id", profile?.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile!, wallet_address: newWalletAddress.trim() });
+      setWithdrawAddress(newWalletAddress.trim());
+      setEditingWallet(false);
+
+      toast({
+        title: "Success",
+        description: "Your wallet address has been saved.",
+      });
+    } catch (error) {
+      console.error("Save wallet error:", error);
+      toast({
+        variant: "destructive",
+        title: "Save failed",
+        description: "Unable to save wallet address. Please try again.",
+      });
+    } finally {
+      setIsSavingWallet(false);
     }
   };
 
@@ -324,27 +368,73 @@ export default function WalletPage() {
 
         {/* Wallet Address */}
         <Card className="bg-card border-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg">Your Wallet Address</CardTitle>
-            <CardDescription>
-              This is where your USDT withdrawals will be sent.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Your Wallet Address</CardTitle>
+              <CardDescription>
+                This is where your USDT withdrawals will be sent.
+              </CardDescription>
+            </div>
+            {!editingWallet && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingWallet(true)}
+              >
+                Edit
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
-              <div className="flex-1 font-mono text-sm truncate text-foreground">
-                {profile?.wallet_address || "Not set"}
+            {editingWallet ? (
+              <div className="space-y-3">
+                <Input
+                  type="text"
+                  placeholder="Enter your USDT wallet address (TRC20)..."
+                  value={newWalletAddress}
+                  onChange={(e) => setNewWalletAddress(e.target.value)}
+                  className="bg-muted/50"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 gradient-primary text-primary-foreground"
+                    onClick={handleSaveWallet}
+                    disabled={isSavingWallet}
+                  >
+                    {isSavingWallet ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    Save Address
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setEditingWallet(false);
+                      setNewWalletAddress(profile?.wallet_address || "");
+                    }}
+                    disabled={isSavingWallet}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              {profile?.wallet_address && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => copyToClipboard(profile.wallet_address!)}
-                >
-                  <Copy className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+                <div className="flex-1 font-mono text-sm truncate text-foreground">
+                  {profile?.wallet_address || "Not set"}
+                </div>
+                {profile?.wallet_address && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard(profile.wallet_address!)}
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

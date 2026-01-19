@@ -43,6 +43,28 @@ export default function Orders() {
   useEffect(() => {
     if (user) {
       fetchOrders();
+      
+      // Set up real-time subscription for user's orders
+      const ordersChannel = supabase
+        .channel('user-orders-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'orders'
+          },
+          (payload) => {
+            console.log('Order changed:', payload);
+            // Refetch orders whenever any order changes
+            fetchOrders();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(ordersChannel);
+      };
     }
   }, [user]);
 

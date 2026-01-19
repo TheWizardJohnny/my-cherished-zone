@@ -9,11 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
+
+interface InfoSection {
+  title: string;
+  content: string;
+}
 
 export function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,9 +30,42 @@ export function AdminProducts() {
     description: "",
     price: "",
     pv_value: "",
-    image_url: "",
+    features: [] as string[],
+    more_info: { sections: [] as InfoSection[] },
     active: true,
   });
+  const [newFeature, setNewFeature] = useState("");
+
+  const addInfoSection = () => {
+    setFormData({
+      ...formData,
+      more_info: {
+        sections: [
+          ...formData.more_info.sections,
+          { title: "", content: "" }
+        ]
+      }
+    });
+  };
+
+  const removeInfoSection = (index: number) => {
+    setFormData({
+      ...formData,
+      more_info: {
+        sections: formData.more_info.sections.filter((_, i) => i !== index)
+      }
+    });
+  };
+
+  const updateInfoSection = (index: number, updates: Partial<InfoSection>) => {
+    const newSections = [...formData.more_info.sections];
+    newSections[index] = { ...newSections[index], ...updates };
+    setFormData({
+      ...formData,
+      more_info: { sections: newSections }
+    });
+  };
+
 
   useEffect(() => {
     fetchProducts();
@@ -41,6 +79,7 @@ export function AdminProducts() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log("Fetched products in admin:", data);
       setProducts(data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -63,9 +102,12 @@ export function AdminProducts() {
         description: formData.description || null,
         price: parseFloat(formData.price),
         pv_value: parseInt(formData.pv_value) || 0,
-        image_url: formData.image_url || null,
+        features: formData.features,
+        more_info: formData.more_info,
         active: formData.active,
       };
+
+      console.log("Saving product data:", productData);
 
       if (editingProduct) {
         const { error } = await supabase
@@ -102,7 +144,21 @@ export function AdminProducts() {
       description: product.description || "",
       price: product.price.toString(),
       pv_value: product.pv_value.toString(),
-      image_url: product.image_url || "",
+      features: Array.isArray(product.features) ? product.features : [],
+      more_info: (product.more_info && typeof product.more_info === 'object')
+        ? {
+            sections: Array.isArray((product.more_info as any).sections)
+              ? (product.more_info as any).sections.map((s: any) => ({
+                  title: s?.title ?? "",
+                  content: typeof s?.content === 'string'
+                    ? s.content
+                    : Array.isArray(s?.items)
+                      ? (s.items as string[]).join('\n')
+                      : ""
+                }))
+              : []
+          }
+        : { sections: [] },
       active: product.active ?? true,
     });
     setDialogOpen(true);
@@ -134,8 +190,27 @@ export function AdminProducts() {
       description: "",
       price: "",
       pv_value: "",
-      image_url: "",
+      features: [],
+      more_info: { sections: [] },
       active: true,
+    });
+    setNewFeature("");
+  };
+
+  const addFeature = () => {
+    if (newFeature.trim()) {
+      setFormData({
+        ...formData,
+        features: [...formData.features, newFeature.trim()],
+      });
+      setNewFeature("");
+    }
+  };
+
+  const removeFeature = (index: number) => {
+    setFormData({
+      ...formData,
+      features: formData.features.filter((_, i) => i !== index),
     });
   };
 
@@ -165,13 +240,22 @@ export function AdminProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-screen overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingProduct ? "Edit Product" : "Add New Product"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form
+              onSubmit={handleSubmit}
+              onKeyDown={(e) => {
+                // Prevent Enter key from submitting the form when focused on inputs
+                if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                  e.preventDefault();
+                }
+              }}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name</Label>
                 <Input
@@ -212,13 +296,81 @@ export function AdminProducts() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image_url">Image URL</Label>
-                <Input
-                  id="image_url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://..."
-                />
+                <Label>Features / Benefits</Label>
+                <div className="space-y-2">
+                  {formData.features.map((feature, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input value={feature} disabled className="flex-1" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeFeature(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Add a feature (e.g., Binary placement)"
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addFeature();
+                        }
+                      }}
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={addFeature}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label>Additional Product Information</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addInfoSection}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Section
+                  </Button>
+                </div>
+                <div className="space-y-4">
+                  {formData.more_info.sections.map((section, sectionIdx) => (
+                    <div key={sectionIdx} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="Section title (e.g., 'What's Included')"
+                          value={section.title}
+                          onChange={(e) => updateInfoSection(sectionIdx, { title: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.preventDefault();
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => removeInfoSection(sectionIdx)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`section-content-${sectionIdx}`}>Section Content</Label>
+                        <Textarea
+                          id={`section-content-${sectionIdx}`}
+                          placeholder="Enter detailed information. Use Enter for new lines."
+                          value={section.content}
+                          onChange={(e) => updateInfoSection(sectionIdx, { content: e.target.value })}
+                          className="min-h-[120px]"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Switch

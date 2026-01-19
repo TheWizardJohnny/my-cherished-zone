@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName?: string, sponsorId?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  checkUserStatus: () => Promise<{ status: string | null; error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName?: string, sponsorId?: string) => {
+  const signUp = async (email: string, password: string, fullName?: string, referralId?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          sponsor_id: sponsorId,
+          referral_id: referralId, // Pass referral_id to trigger function
         },
       },
     });
@@ -57,20 +58,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
-    return { error: error as Error | null };
+    if (error) {
+      return { error: error as Error | null };
+    }
+
+    // Check user profile status
+    if (data.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("user_id", data.user.id)
+        .single();
+
+      if (profileError) {
+        return { error: new Error("Failed to fetch user profile") };
+      }
+
+      if (profile?.status === "suspended") {
+        // Sign out immediately
+        await supabase.auth.signOut();
+        return { 
+          error: new Error("Your account has been suspended. Please contact the administrator for assistance.") 
+        };
+      }
+
+      if (profile?.status === "inactive") {
+        // Sign out immediately
+        await supabase.auth.signOut();
+        return { 
+          error: new Error("Your account has been blocked. Please contact the administrator for assistance.") 
+        };
+      }
+    }
+    
+    return { error: null };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
+  const checkUserStatus = async () => {
+    if (!user) {
+      return { status: null, error: new Error("No user logged in") };
+    }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error) {
+      return { status: null, error: new Error("Failed to fetch user status") };
+    }
+
+    return { status: profile?.status || null, error: null };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, checkUserStatus }}>
       {children}
     </AuthContext.Provider>
   );

@@ -104,7 +104,9 @@ export type Database = {
       }
       orders: {
         Row: {
+          contact_number: string | null
           created_at: string
+          delivery_address: Json | null
           id: string
           payment_reference: string | null
           payment_status: string | null
@@ -112,10 +114,16 @@ export type Database = {
           pv_earned: number
           quantity: number
           total_amount: number
+          tx_id: string | null
+          tx_verification_details: Json | null
+          tx_verification_status: string | null
+          tx_verified_at: string | null
           user_id: string
         }
         Insert: {
+          contact_number?: string | null
           created_at?: string
+          delivery_address?: Json | null
           id?: string
           payment_reference?: string | null
           payment_status?: string | null
@@ -123,10 +131,16 @@ export type Database = {
           pv_earned: number
           quantity?: number
           total_amount: number
+          tx_id?: string | null
+          tx_verification_details?: Json | null
+          tx_verification_status?: string | null
+          tx_verified_at?: string | null
           user_id: string
         }
         Update: {
+          contact_number?: string | null
           created_at?: string
+          delivery_address?: Json | null
           id?: string
           payment_reference?: string | null
           payment_status?: string | null
@@ -134,6 +148,10 @@ export type Database = {
           pv_earned?: number
           quantity?: number
           total_amount?: number
+          tx_id?: string | null
+          tx_verification_details?: Json | null
+          tx_verification_status?: string | null
+          tx_verified_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -197,6 +215,7 @@ export type Database = {
           placement_id: string | null
           placement_side: string | null
           rank: string | null
+          referral_id: string | null
           sponsor_id: string | null
           status: string | null
           total_left_volume: number | null
@@ -215,6 +234,7 @@ export type Database = {
           placement_id?: string | null
           placement_side?: string | null
           rank?: string | null
+          referral_id?: string | null
           sponsor_id?: string | null
           status?: string | null
           total_left_volume?: number | null
@@ -233,6 +253,7 @@ export type Database = {
           placement_id?: string | null
           placement_side?: string | null
           rank?: string | null
+          referral_id?: string | null
           sponsor_id?: string | null
           status?: string | null
           total_left_volume?: number | null
@@ -252,6 +273,111 @@ export type Database = {
           {
             foreignKeyName: "profiles_sponsor_id_fkey"
             columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          id: string
+          key: string
+          value: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      placements: {
+        Row: {
+          created_at: string
+          id: string
+          position: string | null
+          status: string
+          updated_at: string
+          upline_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: string | null
+          status?: string
+          updated_at?: string
+          upline_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: string | null
+          status?: string
+          updated_at?: string
+          upline_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "placements_upline_id_fkey"
+            columns: ["upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referred_user_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referred_user_id?: string
+          referrer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

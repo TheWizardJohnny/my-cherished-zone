@@ -15,14 +15,27 @@ export function useAdmin() {
         return;
       }
 
+      // First check localStorage for testing
+      const storedRole = localStorage.getItem("userRole");
+      if (storedRole === "admin") {
+        setIsAdmin(true);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data, error } = await supabase.rpc('is_admin');
+        // Query user_roles directly instead of using RPC
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin');
         
         if (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
         } else {
-          setIsAdmin(data === true);
+          setIsAdmin(data && data.length > 0);
         }
       } catch (err) {
         console.error('Error checking admin status:', err);
