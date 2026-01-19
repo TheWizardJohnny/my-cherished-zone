@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Bell,
+  UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Genealogy", href: "/dashboard/genealogy", icon: Users },
+  { name: "My Referrals", href: "/dashboard/referrals", icon: UserPlus },
   { name: "Commissions", href: "/dashboard/commissions", icon: TrendingUp },
   { name: "Wallet", href: "/dashboard/wallet", icon: Wallet },
   { name: "Shop", href: "/dashboard/shop", icon: ShoppingBag },

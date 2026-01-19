@@ -13,6 +13,7 @@ import WalletPage from "./pages/WalletPage";
 import Shop from "./pages/Shop";
 import Orders from "./pages/Orders";
 import SettingsPage from "./pages/SettingsPage";
+import Referrals from "./pages/Referrals";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/dashboard/shop" element={<Shop />} />
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/settings" element={<SettingsPage />} />
+            <Route path="/dashboard/referrals" element={<Referrals />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
