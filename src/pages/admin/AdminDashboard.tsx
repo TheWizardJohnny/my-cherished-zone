@@ -24,6 +24,8 @@ import { AdminWithdrawals } from "@/components/admin/AdminWithdrawals";
 import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 import { AdminOrders } from "@/components/admin/AdminOrders";
 import { AdminSettings } from "@/components/admin/AdminSettings";
+import { AdminBinaryTree } from "@/components/admin/AdminBinaryTree";
+import { GitBranch } from "lucide-react";
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -155,7 +157,7 @@ export default function AdminDashboard() {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
@@ -180,6 +182,10 @@ export default function AdminDashboard() {
               <Megaphone className="h-4 w-4" />
               <span className="hidden sm:inline">Announcements</span>
             </TabsTrigger>
+            <TabsTrigger value="binary" className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4" />
+              <span className="hidden sm:inline">BinaryTree</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -203,6 +209,9 @@ export default function AdminDashboard() {
           </TabsContent>
           <TabsContent value="announcements">
             <AdminAnnouncements />
+          </TabsContent>
+          <TabsContent value="binary">
+            <AdminBinaryTree />
           </TabsContent>
           <TabsContent value="settings">
             <AdminSettings />

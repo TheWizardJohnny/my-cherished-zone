@@ -44,6 +44,43 @@ export default function Commissions() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
+    const fetchCommissions = async () => {
+      try {
+        // First get the profile
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user?.id)
+          .single();
+
+        if (profileData) {
+          const { data: commissionsData } = await supabase
+            .from("commissions")
+            .select("*")
+            .eq("user_id", profileData.id)
+            .order("created_at", { ascending: false });
+
+          if (commissionsData) {
+            setCommissions(commissionsData);
+
+            const total = commissionsData.reduce((sum, c) => sum + Number(c.amount), 0);
+            const pending = commissionsData
+              .filter((c) => c.status === "pending" || c.status === "approved")
+              .reduce((sum, c) => sum + Number(c.amount), 0);
+            const paid = commissionsData
+              .filter((c) => c.status === "paid")
+              .reduce((sum, c) => sum + Number(c.amount), 0);
+
+            setStats({ total, pending, paid });
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching commissions:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (user) {
       fetchCommissions();
       
