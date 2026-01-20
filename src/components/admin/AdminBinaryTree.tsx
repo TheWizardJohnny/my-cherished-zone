@@ -237,7 +237,7 @@ export function AdminBinaryTree() {
         ) : !rootNode ? (
           <div className="text-sm text-muted-foreground">No placements found.</div>
         ) : (
-          <div className="flex flex-col items-center space-y-8 py-6">
+          <div className="flex flex-col items-center space-y-12 py-8">
             {Array.from({ length: maxDepth }).map((_, levelIdx) => {
               const levelMap = positionedLevels.get(levelIdx);
               if (!levelMap || levelMap.size === 0) return null;
@@ -246,9 +246,9 @@ export function AdminBinaryTree() {
               const sortedIndices = Array.from({ length: nodesInLevel }, (_, i) => i).sort((a, b) => a - b);
 
               return (
-                <div key={levelIdx} className="flex flex-col items-center space-y-3 w-full">
+                <div key={levelIdx} className="flex flex-col items-center space-y-4 w-full">
                   <div className="text-sm font-semibold text-gray-700">Level {levelIdx + 1}</div>
-                  <div className="flex items-center justify-center gap-8 flex-wrap">
+                  <div className="flex items-center justify-center gap-6 flex-wrap">
                     {sortedIndices.map((idx) => {
                       const node = levelMap.get(idx);
                       const isLeftChild = idx % 2 === 0;
