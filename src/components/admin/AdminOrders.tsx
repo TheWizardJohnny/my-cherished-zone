@@ -149,14 +149,17 @@ export function AdminOrders() {
   };
 
   const handleVerifyTransaction = async (orderId: string) => {
+    console.log(`[UI] Starting transaction verification for order: ${orderId}`);
     setVerifying(orderId);
     try {
       const result = await BlockchainVerificationService.verifyAndUpdateOrder(orderId);
       
+      console.log(`[UI] Verification result:`, result);
+      
       if (result.verified) {
         toast({
-          title: "Transaction Verified",
-          description: "Payment has been confirmed on the blockchain",
+          title: "Transaction Verified ✓",
+          description: "Payment has been confirmed. Please verify address on Etherscan.",
         });
       } else {
         toast({
@@ -166,6 +169,8 @@ export function AdminOrders() {
         });
       }
       
+      // Refresh orders to get updated status
+      await new Promise(resolve => setTimeout(resolve, 500));
       fetchOrders();
     } catch (error) {
       console.error("Error verifying transaction:", error);
@@ -187,13 +192,19 @@ export function AdminOrders() {
     if (!deleteConfirm.orderId) return;
 
     try {
+      console.log(`[DELETE] Attempting to delete order: ${deleteConfirm.orderId}`);
+      
       const { error } = await supabase
         .from("orders")
         .delete()
         .eq("id", deleteConfirm.orderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error(`[DELETE] Delete failed:`, error);
+        throw error;
+      }
 
+      console.log(`[DELETE] Order deleted successfully`);
       toast({
         title: "Order Deleted",
         description: "Order has been permanently removed from the system",
@@ -203,10 +214,11 @@ export function AdminOrders() {
       fetchOrders();
     } catch (error) {
       console.error("Error deleting order:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete order";
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to delete order",
+        description: errorMessage,
       });
     }
   };

@@ -113,6 +113,7 @@ export class BlockchainVerificationService {
         .single();
 
       if (orderError || !order) {
+        console.error("Order not found:", orderError);
         return {
           success: false,
           verified: false,
@@ -120,8 +121,11 @@ export class BlockchainVerificationService {
         };
       }
 
+      console.log(`[VERIFY] Starting verification for order ${orderId}, TX: ${order.tx_id}`);
+
       // Check if TX ID is provided
       if (!order.tx_id || order.tx_id.trim() === "") {
+        console.log(`[VERIFY] No TX ID provided, setting to awaiting`);
         await supabase
           .from("orders")
           .update({
@@ -136,14 +140,6 @@ export class BlockchainVerificationService {
         };
       }
 
-      // Update status to checking
-      await supabase
-        .from("orders")
-        .update({
-          tx_verification_status: "checking",
-        })
-        .eq("id", orderId);
-
       // Fetch system USDT address
       const { data: settingData } = await supabase
         .from("settings")
@@ -154,42 +150,56 @@ export class BlockchainVerificationService {
       const systemAddress = settingData?.value || "";
 
       // Verify the transaction
+      console.log(`[VERIFY] Verifying TX format and address...`);
       const result = await this.verifyTRC20Transaction(
         order.tx_id,
         systemAddress,
         order.total_amount
       );
 
-      // Update order based on verification result
+      console.log(`[VERIFY] Verification result:`, result);
+
+      // Determine new status based on verification result
+      let newStatus = "received"; // default
+      let updateData: Record<string, unknown> = {
+        tx_verification_details: (result.details || {}) as unknown as Json,
+      };
+
       if (result.verified) {
-        await supabase
-          .from("orders")
-          .update({
-            tx_verification_status: "verified",
-            payment_status: "paid",
-            tx_verified_at: new Date().toISOString(),
-            tx_verification_details: (result.details || {}) as unknown as Json,
-          })
-          .eq("id", orderId);
+        // TX format is valid - mark as verified
+        newStatus = "verified";
+        updateData.payment_status = "paid";
+        updateData.tx_verified_at = new Date().toISOString();
+        console.log(`[VERIFY] TX valid, setting to verified`);
       } else if (!result.success) {
-        await supabase
-          .from("orders")
-          .update({
-            tx_verification_status: "failed",
-            tx_verification_details: { error: result.message } as unknown as Json,
-          })
-          .eq("id", orderId);
+        // TX format is invalid - mark as failed
+        newStatus = "failed";
+        updateData.tx_verification_details = { error: result.message } as unknown as Json;
+        console.log(`[VERIFY] TX invalid, setting to failed: ${result.message}`);
       } else {
-        // Verification pending - keep as received
-        await supabase
-          .from("orders")
-          .update({
-            tx_verification_status: "received",
-            tx_verification_details: (result.details || {}) as unknown as Json,
-          })
-          .eq("id", orderId);
+        // TX format is valid but needs manual verification - mark as received
+        newStatus = "received";
+        console.log(`[VERIFY] TX format valid, pending manual verification, setting to received`);
       }
 
+      updateData.tx_verification_status = newStatus;
+
+      // Update order with new status
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", orderId);
+
+      if (updateError) {
+        console.error(`[VERIFY] Database update failed:`, updateError);
+        return {
+          success: false,
+          verified: false,
+          message: `Database update failed: ${updateError.message}`,
+        };
+      }
+
+      console.log(`[VERIFY] Order ${orderId} updated to status: ${newStatus}`);
       return result;
     } catch (error) {
       console.error("Error in verifyAndUpdateOrder:", error);
