@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,6 +148,16 @@ export default function Dashboard() {
           },
           (payload) => {
             console.log('Profile changed:', payload);
+            
+            // Check if rank changed
+            if (payload.old.rank !== payload.new.rank) {
+              toast({
+                title: "🏆 Rank Advanced!",
+                description: `Congratulations! You've been promoted to ${payload.new.rank}! Your hard work is paying off.`,
+                duration: 15000,
+              });
+            }
+            
             // Update profile with new data (especially referral_id and sponsor_id)
             setProfile(payload.new as Profile);
           }
@@ -191,11 +202,46 @@ export default function Dashboard() {
         )
         .subscribe();
 
+      // Set up real-time subscription for new commissions
+      const commissionsChannel = supabase
+        .channel('dashboard-new-commissions')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'commissions'
+          },
+          async (payload) => {
+            // Check if this commission is for the current user
+            const { data: myProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (myProfile && payload.new.user_id === myProfile.id) {
+              console.log('New commission for current user:', payload);
+              
+              toast({
+                title: "💰 Commission Earned!",
+                description: `You earned $${Number(payload.new.amount || 0).toFixed(2)} from ${payload.new.type} commission!`,
+                duration: 8000,
+              });
+              
+              // Refresh data to show new commission
+              fetchData();
+            }
+          }
+        )
+        .subscribe();
+
       // Cleanup subscriptions on unmount
       return () => {
         supabase.removeChannel(announcementsChannel);
         supabase.removeChannel(profileChannel);
         supabase.removeChannel(referralsChannel);
+        supabase.removeChannel(commissionsChannel);
       };
     }
   }, [user]);
@@ -691,7 +737,7 @@ export default function Dashboard() {
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Commissions */}
           <Card className="bg-card border-border/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -749,6 +795,9 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* Activity Feed */}
+          {user && <ActivityFeed userId={user.id} />}
 
           {/* Announcements */}
           <Card className="bg-card border-border/50">
