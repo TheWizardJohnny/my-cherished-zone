@@ -208,9 +208,10 @@ export class BlockchainVerificationService {
     try {
       const { data: orders } = await supabase
         .from("orders")
-        .select("id")
-        .in("tx_verification_status", ["received", "checking"])
-        .eq("payment_status", "pending");
+        .select("id, tx_verification_status, tx_id")
+        .in("tx_verification_status", ["received"])
+        .eq("payment_status", "pending")
+        .not("tx_id", "is", null);
 
       if (orders && orders.length > 0) {
         console.log(`Verifying ${orders.length} pending orders...`);

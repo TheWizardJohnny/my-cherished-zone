@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -282,8 +282,8 @@ export function AdminOrders() {
               </TableHeader>
               <TableBody>
                 {orders.map((order) => (
-                  <>
-                    <TableRow key={order.id}>
+                  <React.Fragment key={`order-group-${order.id}`}>
+                    <TableRow>
                       <TableCell className="text-sm">
                         {new Date(order.created_at).toLocaleDateString()}
                       </TableCell>
@@ -483,7 +483,7 @@ export function AdminOrders() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -501,9 +501,11 @@ export function AdminOrders() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Order - Permanent Action</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2 pt-2">
-              <p>⚠️ WARNING: This will permanently delete this order and remove it from the system. This action CANNOT be undone.</p>
-              <p className="text-xs font-medium text-muted-foreground">Order ID: {deleteConfirm.orderId}</p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 pt-2">
+                <p>⚠️ WARNING: This will permanently delete this order and remove it from the system. This action CANNOT be undone.</p>
+                <p className="text-xs font-medium text-muted-foreground">Order ID: {deleteConfirm.orderId}</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
