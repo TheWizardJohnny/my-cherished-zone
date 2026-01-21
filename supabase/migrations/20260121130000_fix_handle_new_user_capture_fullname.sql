@@ -1,5 +1,5 @@
--- Update handle_new_user trigger to automatically create referral relationship
--- when a user signs up with a referral code
+-- Fix handle_new_user to capture and save full_name from signup metadata
+-- Issue: Full name entered during signup was not being saved to profiles table
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
@@ -20,11 +20,12 @@ BEGIN
   provided_full_name := NEW.raw_user_meta_data->>'full_name';
   provided_referral_id := NEW.raw_user_meta_data->>'referral_id';
   
-  -- Insert new profile with referral_id and full_name
+  -- Insert new profile with full_name, referral_id, status, and rank
   INSERT INTO public.profiles (user_id, email, full_name, referral_id, status, rank)
   VALUES (NEW.id, NEW.email, provided_full_name, rid, 'active', 'member')
   RETURNING id INTO new_profile_id;
   
+  -- If a referral code was provided in signup metadata, create referral relationship
   IF provided_referral_id IS NOT NULL AND btrim(provided_referral_id) <> '' THEN
     -- Find the referrer's profile by their referral_id
     SELECT id INTO referrer_profile_id
