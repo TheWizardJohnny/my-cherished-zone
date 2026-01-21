@@ -378,51 +378,107 @@ export function AdminOrders() {
                       </TableCell>
                     </TableRow>
                     {expandedOrderId === order.id && (
-                      <TableRow className="bg-muted/30">
+                      <TableRow key={`${order.id}-details`} className="bg-muted/30">
                         <TableCell colSpan={10} className="p-4">
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             <div>
-                              <p className="text-sm font-medium text-muted-foreground">Street</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.delivery_address?.street || "Not provided"}
-                              </p>
+                              <h4 className="text-sm font-semibold mb-3">Delivery Information</h4>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Street</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.delivery_address?.street || "Not provided"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Suburb</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.delivery_address?.suburb || "—"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Town / City</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.delivery_address?.town || "Not provided"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Postal / ZIP Code</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.delivery_address?.postal_code || "—"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Country</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.delivery_address?.country || "Not provided"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-muted-foreground">Contact Number</p>
+                                  <p className="text-sm text-foreground mt-1">
+                                    {order.contact_number || "—"}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Suburb</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.delivery_address?.suburb || "—"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Town / City</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.delivery_address?.town || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Postal / ZIP Code</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.delivery_address?.postal_code || "—"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Country</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.delivery_address?.country || "Not provided"}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Contact Number</p>
-                              <p className="text-sm text-foreground mt-1">
-                                {order.contact_number || "—"}
-                              </p>
-                            </div>
-                            <div className="col-span-2">
-                              <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
-                              <p className="text-sm font-mono text-primary mt-1">
-                                {order.tx_id || "Not provided"}
-                              </p>
-                            </div>
+                            
+                            {order.tx_id && (
+                              <div className="pt-3 border-t">
+                                <h4 className="text-sm font-semibold mb-3">Transaction Verification Details</h4>
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
+                                    <a 
+                                      href={`https://etherscan.io/tx/${order.tx_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm font-mono text-primary hover:underline mt-1 block"
+                                    >
+                                      {order.tx_id}
+                                    </a>
+                                  </div>
+                                  
+                                  {order.tx_verification_details && typeof order.tx_verification_details === 'object' && (
+                                    <>
+                                      {(order.tx_verification_details as { expectedAddress?: string }).expectedAddress && (
+                                        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                                          <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">
+                                            ⚠️ Verify Receiving Address
+                                          </p>
+                                          <div className="space-y-2">
+                                            <div>
+                                              <p className="text-xs font-medium text-amber-800 dark:text-amber-200">Expected System Address:</p>
+                                              <p className="text-xs font-mono text-amber-900 dark:text-amber-100 mt-1 break-all">
+                                                {(order.tx_verification_details as { expectedAddress?: string }).expectedAddress}
+                                              </p>
+                                            </div>
+                                            <p className="text-xs text-amber-800 dark:text-amber-200">
+                                              Click the Transaction ID above and verify on Etherscan that the "To" address matches the expected system address.
+                                            </p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {(order.tx_verification_details as { note?: string }).note && (
+                                        <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                                          {(order.tx_verification_details as { note?: string }).note}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                  
+                                  {order.tx_verified_at && (
+                                    <div>
+                                      <p className="text-sm font-medium text-muted-foreground">Verified At</p>
+                                      <p className="text-sm text-foreground mt-1">
+                                        {new Date(order.tx_verified_at).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
