@@ -17,7 +17,8 @@ import {
   ShoppingCart,
   Settings,
   Waves,
-  Timer
+  Timer,
+  BarChart3
 } from "lucide-react";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminProducts } from "@/components/admin/AdminProducts";
@@ -29,6 +30,7 @@ import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminBinaryTree } from "@/components/admin/AdminBinaryTree";
 import { AdminWeeklyPools } from "@/components/admin/AdminWeeklyPools";
 import { AdminAutoPlacement } from "@/components/admin/AdminAutoPlacement";
+import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { GitBranch } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -161,7 +163,7 @@ export default function AdminDashboard() {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-10">
+          <TabsList className="grid w/full grid-cols-11">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
@@ -193,6 +195,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="pools" className="flex items-center gap-2">
               <Waves className="h-4 w-4" />
               <span className="hidden sm:inline">Weekly Pools</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Analytics</span>
             </TabsTrigger>
             <TabsTrigger value="autoplace" className="flex items-center gap-2">
               <Timer className="h-4 w-4" />
@@ -227,6 +233,9 @@ export default function AdminDashboard() {
           </TabsContent>
           <TabsContent value="pools">
             <AdminWeeklyPools />
+          </TabsContent>
+          <TabsContent value="analytics">
+            <AdminAnalytics />
           </TabsContent>
           <TabsContent value="autoplace">
             <AdminAutoPlacement />

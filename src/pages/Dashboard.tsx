@@ -19,7 +19,24 @@ import {
   Loader2,
   Copy,
   Share2,
+  DollarSign,
+  Target,
+  Scale,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+} from "recharts";
+import { Progress } from "@/components/ui/progress";
 
 interface Profile {
   id: string;
@@ -55,6 +72,10 @@ export default function Dashboard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [recentCommissions, setRecentCommissions] = useState<Commission[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [pendingCommissions, setPendingCommissions] = useState(0);
+  const [directReferralsCount, setDirectReferralsCount] = useState(0);
+  const [commissionsByType, setCommissionsByType] = useState<Record<string, number>>({});
+  const [earningsData, setEarningsData] = useState<Array<{date: string; amount: number}>>([]);
   const [loading, setLoading] = useState(true);
 
   const copyReferralLink = () => {
@@ -191,21 +212,67 @@ export default function Dashboard() {
       if (profileData) {
         setProfile(profileData);
 
-        // Fetch commissions for this profile
-        const { data: commissionsData } = await supabase
+        // Fetch all commissions for analytics
+        const { data: allCommissionsData } = await supabase
           .from("commissions")
           .select("*")
           .eq("user_id", profileData.id)
-          .order("created_at", { ascending: false })
-          .limit(5);
+          .order("created_at", { ascending: false });
 
-        if (commissionsData) {
-          setRecentCommissions(commissionsData);
-          const total = commissionsData
+        if (allCommissionsData) {
+          // Recent commissions for display
+          setRecentCommissions(allCommissionsData.slice(0, 5));
+          
+          // Calculate total paid earnings
+          const total = allCommissionsData
             .filter((c) => c.status === "paid" || c.status === "approved")
             .reduce((sum, c) => sum + Number(c.amount), 0);
           setTotalEarnings(total);
+          
+          // Calculate pending commissions
+          const pending = allCommissionsData
+            .filter((c) => c.status === "pending")
+            .reduce((sum, c) => sum + Number(c.amount), 0);
+          setPendingCommissions(pending);
+          
+          // Group by type
+          const byType: Record<string, number> = {};
+          allCommissionsData
+            .filter((c) => c.status === "paid" || c.status === "approved")
+            .forEach((c) => {
+              const type = c.type || "other";
+              byType[type] = (byType[type] || 0) + Number(c.amount);
+            });
+          setCommissionsByType(byType);
+          
+          // Earnings over last 30 days
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const recentPaidCommissions = allCommissionsData.filter(
+            (c) => (c.status === "paid" || c.status === "approved") &&
+                   new Date(c.created_at) >= thirtyDaysAgo
+          );
+          
+          // Group by date
+          const earningsByDate: Record<string, number> = {};
+          recentPaidCommissions.forEach((c) => {
+            const date = new Date(c.created_at).toISOString().slice(0, 10);
+            earningsByDate[date] = (earningsByDate[date] || 0) + Number(c.amount);
+          });
+          
+          const sortedEarnings = Object.entries(earningsByDate)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([date, amount]) => ({ date, amount }));
+          setEarningsData(sortedEarnings);
         }
+        
+        // Fetch direct referrals count
+        const { data: referralsData, count } = await supabase
+          .from("referrals")
+          .select("*", { count: "exact", head: false })
+          .eq("referrer_id", profileData.id);
+        
+        setDirectReferralsCount(count || 0);
       }
 
       // Fetch announcements
@@ -256,6 +323,72 @@ export default function Dashboard() {
     };
     return colors[rank] || colors.member;
   };
+
+  const getRankRequirements = (currentRank: string) => {
+    const ranks: Record<string, { next: string; volumeRequired: number; referralsRequired: number }> = {
+      member: { next: "Bronze", volumeRequired: 1000, referralsRequired: 3 },
+      bronze: { next: "Silver", volumeRequired: 5000, referralsRequired: 5 },
+      silver: { next: "Gold", volumeRequired: 15000, referralsRequired: 10 },
+      gold: { next: "Platinum", volumeRequired: 50000, referralsRequired: 20 },
+      platinum: { next: "Diamond", volumeRequired: 150000, referralsRequired: 50 },
+      diamond: { next: "Crown", volumeRequired: 500000, referralsRequired: 100 },
+      crown: { next: "Crown", volumeRequired: 500000, referralsRequired: 100 },
+    };
+    return ranks[currentRank] || ranks.member;
+  };
+
+  const calculateRankProgress = () => {
+    if (!profile) return { progress: 0, nextRank: "Bronze", volumeNeeded: 1000, referralsNeeded: 3 };
+    
+    const requirements = getRankRequirements(profile.rank);
+    const weakerLeg = Math.min(
+      Number(profile.total_left_volume || 0),
+      Number(profile.total_right_volume || 0)
+    );
+    
+    const volumeProgress = Math.min((weakerLeg / requirements.volumeRequired) * 100, 100);
+    const referralsProgress = Math.min((directReferralsCount / requirements.referralsRequired) * 100, 100);
+    const totalProgress = (volumeProgress + referralsProgress) / 2;
+    
+    return {
+      progress: totalProgress,
+      nextRank: requirements.next,
+      volumeNeeded: Math.max(0, requirements.volumeRequired - weakerLeg),
+      referralsNeeded: Math.max(0, requirements.referralsRequired - directReferralsCount),
+      volumeProgress,
+      referralsProgress,
+    };
+  };
+
+  const getBinaryBalance = () => {
+    if (!profile) return { ratio: 0, status: "balanced", message: "" };
+    
+    const leftVol = Number(profile.total_left_volume || 0);
+    const rightVol = Number(profile.total_right_volume || 0);
+    const total = leftVol + rightVol;
+    
+    if (total === 0) return { ratio: 50, status: "empty", message: "Build your binary tree" };
+    
+    const leftPercent = (leftVol / total) * 100;
+    const rightPercent = (rightVol / total) * 100;
+    const difference = Math.abs(leftPercent - rightPercent);
+    
+    let status = "balanced";
+    let message = "Excellent balance!";
+    
+    if (difference > 30) {
+      status = "warning";
+      message = `Focus on your ${leftVol < rightVol ? "left" : "right"} leg`;
+    } else if (difference > 15) {
+      status = "caution";
+      message = "Minor imbalance detected";
+    }
+    
+    return { ratio: leftPercent, status, message, leftVol, rightVol };
+  };
+
+  const rankProgress = calculateRankProgress();
+  const binaryBalance = getBinaryBalance();
 
   if (authLoading || loading) {
     return (
@@ -346,25 +479,215 @@ export default function Dashboard() {
           <StatsCard
             title="Total Earnings"
             value={formatCurrency(totalEarnings)}
-            change="+12% from last week"
-            changeType="positive"
             icon={<Wallet className="w-6 h-6 text-primary" />}
           />
           <StatsCard
-            title="Left Volume"
-            value={formatCurrency(Number(profile?.total_left_volume || 0))}
-            icon={<TrendingUp className="w-6 h-6 text-accent" />}
+            title="Pending Commission"
+            value={formatCurrency(pendingCommissions)}
+            icon={<DollarSign className="w-6 h-6 text-warning" />}
           />
           <StatsCard
-            title="Right Volume"
-            value={formatCurrency(Number(profile?.total_right_volume || 0))}
-            icon={<TrendingUp className="w-6 h-6 text-success" />}
+            title="Direct Referrals"
+            value={directReferralsCount.toString()}
+            icon={<Users className="w-6 h-6 text-accent" />}
           />
           <StatsCard
             title="Personal Volume"
             value={formatCurrency(Number(profile?.personal_volume || 0))}
-            icon={<Users className="w-6 h-6 text-warning" />}
+            icon={<TrendingUp className="w-6 h-6 text-success" />}
           />
+        </div>
+
+        {/* Rank Progress & Binary Balance */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Rank Progress Tracker */}
+          <Card className="bg-card border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                Rank Progress - Next: {rankProgress.nextRank}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Overall Progress</span>
+                  <span className="text-sm font-semibold">{rankProgress.progress.toFixed(0)}%</span>
+                </div>
+                <Progress value={rankProgress.progress} className="h-3" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-accent" />
+                    <span className="text-xs text-muted-foreground">Volume Requirement</span>
+                  </div>
+                  <Progress value={rankProgress.volumeProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(rankProgress.volumeNeeded)} needed
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    <span className="text-xs text-muted-foreground">Referral Requirement</span>
+                  </div>
+                  <Progress value={rankProgress.referralsProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {rankProgress.referralsNeeded} more needed
+                  </p>
+                </div>
+              </div>
+              
+              {rankProgress.progress >= 100 && (
+                <div className="p-3 rounded-lg bg-success/10 border border-success/20 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-success" />
+                  <p className="text-sm text-success font-medium">Ready for rank advancement!</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Binary Balance Indicator */}
+          <Card className="bg-card border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-accent" />
+                Binary Balance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Left Leg</span>
+                  <span className="font-semibold">{binaryBalance.ratio.toFixed(1)}%</span>
+                </div>
+                <div className="relative h-8 rounded-full overflow-hidden bg-muted">
+                  <div
+                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-accent to-accent/80"
+                    style={{ width: `${binaryBalance.ratio}%` }}
+                  />
+                  <div
+                    className="absolute right-0 top-0 h-full bg-gradient-to-l from-success to-success/80"
+                    style={{ width: `${100 - binaryBalance.ratio}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-1 h-full bg-border" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Right Leg</span>
+                  <span className="font-semibold">{(100 - binaryBalance.ratio).toFixed(1)}%</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-accent/10">
+                  <p className="text-xs text-muted-foreground">Left Volume</p>
+                  <p className="text-lg font-bold">{formatCurrency(binaryBalance.leftVol || 0)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-success/10">
+                  <p className="text-xs text-muted-foreground">Right Volume</p>
+                  <p className="text-lg font-bold">{formatCurrency(binaryBalance.rightVol || 0)}</p>
+                </div>
+              </div>
+              
+              <div
+                className={`p-3 rounded-lg flex items-center gap-2 ${
+                  binaryBalance.status === "warning"
+                    ? "bg-destructive/10 border border-destructive/20"
+                    : binaryBalance.status === "caution"
+                    ? "bg-warning/10 border border-warning/20"
+                    : "bg-success/10 border border-success/20"
+                }`}
+              >
+                {binaryBalance.status === "warning" && <AlertTriangle className="w-5 h-5 text-destructive" />}
+                {binaryBalance.status === "caution" && <AlertTriangle className="w-5 h-5 text-warning" />}
+                {binaryBalance.status === "balanced" && <CheckCircle2 className="w-5 h-5 text-success" />}
+                <p
+                  className={`text-sm font-medium ${
+                    binaryBalance.status === "warning"
+                      ? "text-destructive"
+                      : binaryBalance.status === "caution"
+                      ? "text-warning"
+                      : "text-success"
+                  }`}
+                >
+                  {binaryBalance.message}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Earnings Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Earnings Chart */}
+          <Card className="bg-card border-border/50">
+            <CardHeader>
+              <CardTitle className="text-base">Earnings Trend (Last 30 Days)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {earningsData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={earningsData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#888" />
+                    <YAxis tick={{ fontSize: 10 }} stroke="#888" />
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{ backgroundColor: "#1f1f1f", border: "1px solid #333" }}
+                    />
+                    <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No earnings data yet</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Commission Breakdown */}
+          <Card className="bg-card border-border/50">
+            <CardHeader>
+              <CardTitle className="text-base">Commission Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(commissionsByType).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(commissionsByType)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([type, amount]) => (
+                      <div key={type} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground capitalize">
+                            {getCommissionTypeLabel(type)}
+                          </span>
+                          <span className="font-semibold">{formatCurrency(amount)}</span>
+                        </div>
+                        <Progress
+                          value={(amount / totalEarnings) * 100}
+                          className="h-2"
+                        />
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <DollarSign className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No commissions earned yet</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Content Grid */}

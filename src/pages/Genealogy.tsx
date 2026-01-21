@@ -37,6 +37,7 @@ export default function Genealogy() {
   const navigate = useNavigate();
   const [rootProfile, setRootProfile] = useState<TreeNode | null>(null);
   const [sponsorInfo, setSponsorInfo] = useState<Profile | null>(null);
+  const [referrerInfo, setReferrerInfo] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -132,6 +133,33 @@ export default function Genealogy() {
         } else {
           console.log("No upline_id found in placement", { placementData });
           setSponsorInfo(null);
+        }
+
+        // Fetch referrer information (person who referred this user)
+        const { data: referralData, error: referralError } = await supabase
+          .from("referrals")
+          .select("referrer_id")
+          .eq("referred_user_id", profileData.id)
+          .maybeSingle();
+
+        console.log("Referral fetch:", { referralData, referralError, profileId: profileData.id });
+
+        if (referralData?.referrer_id) {
+          const { data: referrerProfile, error: referrerError } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, rank, referral_id")
+            .eq("id", referralData.referrer_id)
+            .single();
+
+          console.log("Referrer profile fetch:", { referrerProfile, referrerError });
+
+          if (referrerProfile) {
+            setReferrerInfo(referrerProfile as Profile);
+          } else {
+            setReferrerInfo(null);
+          }
+        } else {
+          setReferrerInfo(null);
         }
 
         // Fetch downlines (children) from placements table
@@ -322,7 +350,7 @@ export default function Genealogy() {
         </div>
 
         {/* User Info & Upline Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Your Referral ID */}
           <Card className="bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
             <CardHeader className="pb-3">
@@ -345,6 +373,48 @@ export default function Genealogy() {
               <p className="text-xs text-muted-foreground">
                 Share this ID to build your downline network
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Referred By */}
+          <Card className="bg-card border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                Referred BY
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {referrerInfo ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground">
+                        {referrerInfo.full_name || "Member"}
+                      </p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {referrerInfo.email}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          {referrerInfo.rank?.charAt(0).toUpperCase() + (referrerInfo.rank?.slice(1) || "")}
+                        </Badge>
+                        <code className="text-xs px-2 py-1 bg-muted rounded font-mono text-primary">
+                          {referrerInfo.referral_id}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p className="text-sm">No referrer</p>
+                  <p className="text-xs mt-1">Direct member</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
