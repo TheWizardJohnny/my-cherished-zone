@@ -800,6 +800,34 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Marketing Tools Promo */}
+        <Card className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-red-500/10 border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
+                  <Share2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
+                    Marketing Tools Available
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    Get QR codes, social media templates, and promotional materials to grow your network faster
+                  </p>
+                </div>
+              </div>
+              <Button
+                className="gradient-primary text-primary-foreground shrink-0"
+                onClick={() => navigate("/dashboard/marketing")}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Open Marketing Tools
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Quick Actions */}
         <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardContent className="p-6">

@@ -16,6 +16,7 @@ import SettingsPage from "./pages/SettingsPage";
 import Referrals from "./pages/Referrals";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import { MarketingTools } from "./pages/MarketingTools";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/dashboard/orders" element={<Orders />} />
             <Route path="/dashboard/settings" element={<SettingsPage />} />
             <Route path="/dashboard/referrals" element={<Referrals />} />
+            <Route path="/dashboard/marketing" element={<MarketingTools />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
