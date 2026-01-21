@@ -452,6 +452,12 @@ export type Database = {
     }
     Functions: {
       get_own_profile_id: { Args: never; Returns: string }
+      get_placement_side_relative_to_referrer: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -460,6 +466,14 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      place_user_in_binary_tree: {
+        Args: {
+          user_profile_id: string
+          referrer_profile_id: string
+          placement_strategy: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { RefreshCcw, GitBranch, ChevronUp } from "lucide-react";
+import { RefreshCcw, GitBranch, ChevronUp, ZoomIn, ZoomOut } from "lucide-react";
 
 type Profile = Tables<"profiles">;
 type Placement = Tables<"placements">;
@@ -139,6 +139,7 @@ export function AdminBinaryTree() {
   const [viewRootId, setViewRootId] = useState<string | null>(null);
   const [topRootId, setTopRootId] = useState<string | null>(null);
   const [maxDepth, setMaxDepth] = useState(3);
+  const [zoom, setZoom] = useState(100);
 
   useEffect(() => {
     loadData();
@@ -215,6 +216,26 @@ export function AdminBinaryTree() {
               className="w-16"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Zoom</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setZoom((z) => Math.max(25, z - 10))}
+              disabled={zoom <= 25}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[50px] text-center">{zoom}%</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setZoom((z) => Math.min(200, z + 10))}
+              disabled={zoom >= 200}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             {loading ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             <span className="ml-2">Refresh</span>
@@ -237,7 +258,11 @@ export function AdminBinaryTree() {
         ) : !rootNode ? (
           <div className="text-sm text-muted-foreground">No placements found.</div>
         ) : (
-          <div className="flex flex-col items-center space-y-12 py-8">
+          <div className="flex justify-center w-full">
+            <div 
+              className="space-y-16 py-8 px-4 transition-transform duration-200"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
+            >
             {Array.from({ length: maxDepth }).map((_, levelIdx) => {
               const levelMap = positionedLevels.get(levelIdx);
               if (!levelMap || levelMap.size === 0) return null;
@@ -245,25 +270,90 @@ export function AdminBinaryTree() {
               const nodesInLevel = Math.pow(2, levelIdx);
               const sortedIndices = Array.from({ length: nodesInLevel }, (_, i) => i).sort((a, b) => a - b);
 
+              // Level 1 always centered with flex
+              if (levelIdx === 0) {
+                const node = levelMap.get(0);
+                return (
+                  <div key={levelIdx} className="relative">
+                    <div className="text-sm font-semibold text-gray-700 text-center mb-6">Level 1</div>
+                    <div className="flex justify-center">
+                      {node && <NodeBox node={node} onFocus={(id) => setViewRootId(id)} />}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Level 2 always centered with flex
+              if (levelIdx === 1) {
+                return (
+                  <div key={levelIdx} className="relative">
+                    <div className="text-sm font-semibold text-gray-700 text-center mb-6">Level 2</div>
+                    <div className="flex justify-center gap-6">
+                      {sortedIndices.map((idx) => {
+                        const node = levelMap.get(idx);
+                        const isLeftChild = idx % 2 === 0;
+                        if (node) {
+                          return <NodeBox key={idx} node={node} onFocus={(id) => setViewRootId(id)} />;
+                        } else {
+                          return <EmptySlot key={idx} position={isLeftChild ? "left" : "right"} />;
+                        }
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Calculate spacing for this level to create pyramid effect
+              const totalWidth = Math.pow(2, maxDepth - 1);
+              const spacing = totalWidth / nodesInLevel;
+
               return (
-                <div key={levelIdx} className="flex flex-col items-center space-y-4 w-full">
-                  <div className="text-sm font-semibold text-gray-700">Level {levelIdx + 1}</div>
-                  <div className="flex items-center justify-center gap-6 flex-wrap">
+                <div key={levelIdx} className="relative">
+                  <div className="text-sm font-semibold text-gray-700 text-center mb-6">Level {levelIdx + 1}</div>
+                  <div 
+                    className="relative"
+                    style={{ 
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${totalWidth}, 1fr)`,
+                      gap: '1rem',
+                      justifyItems: 'center'
+                    }}
+                  >
                     {sortedIndices.map((idx) => {
                       const node = levelMap.get(idx);
                       const isLeftChild = idx % 2 === 0;
+                      const gridColumn = Math.floor(idx * spacing + spacing / 2) + 1;
+                      const gridSpan = Math.max(1, Math.floor(spacing));
 
                       if (node) {
-                        return <NodeBox key={idx} node={node} onFocus={(id) => setViewRootId(id)} />;
-                      } else if (node === null) {
-                        return <EmptySlot key={idx} position={isLeftChild ? "left" : "right"} />;
+                        return (
+                          <div 
+                            key={idx} 
+                            style={{ 
+                              gridColumn: `${gridColumn} / span ${gridSpan}`,
+                            }}
+                          >
+                            <NodeBox node={node} onFocus={(id) => setViewRootId(id)} />
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div 
+                            key={idx}
+                            style={{ 
+                              gridColumn: `${gridColumn} / span ${gridSpan}`,
+                            }}
+                          >
+                            <EmptySlot position={isLeftChild ? "left" : "right"} />
+                          </div>
+                        );
                       }
-                      return null;
                     })}
                   </div>
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </CardContent>

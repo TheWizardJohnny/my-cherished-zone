@@ -100,7 +100,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Try to sign out via Supabase
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.error('Error during signOut:', error);
+      // If signOut fails, clear local storage manually
+      localStorage.removeItem('sb-akgnohicwkopgdnuijey-auth-token');
+      // Force reload to clear state
+      window.location.href = '/auth';
+    }
   };
 
   const checkUserStatus = async () => {
