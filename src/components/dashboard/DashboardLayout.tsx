@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { UserStatusMonitor } from "@/components/UserStatusMonitor";
@@ -18,9 +18,11 @@ import {
   X,
   Bell,
   UserPlus,
+  Star,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -38,6 +40,53 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unplacedCount, setUnplacedCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUnplaced = async () => {
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!profile) return;
+
+      const { data: refs } = await supabase
+        .from("referrals")
+        .select("referred_user_id")
+        .eq("referrer_id", profile.id);
+
+      const referredIds = (refs || []).map((r) => r.referred_user_id);
+      if (referredIds.length === 0) {
+        if (active) setUnplacedCount(0);
+        return;
+      }
+
+      const { data: placements } = await supabase
+        .from("placements")
+        .select("user_id, position")
+        .in("user_id", referredIds);
+
+      const placedIds = new Set(
+        (placements || [])
+          .filter((p) => p.position && p.position.trim() !== "" && p.position !== "—")
+          .map((p) => p.user_id)
+      );
+
+      const count = referredIds.filter((id) => !placedIds.has(id)).length;
+      if (active) setUnplacedCount(count);
+    };
+
+    loadUnplaced();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -101,7 +150,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     )}
                   >
-                    <item.icon className="w-5 h-5" />
+                    <div className="relative">
+                      <item.icon className="w-5 h-5" />
+                      {item.name === "My Referrals" && unplacedCount > 0 && (
+                        <span className="absolute -top-1 -right-2 flex items-center gap-0.5 rounded-full bg-yellow-500 text-black text-[10px] font-bold px-1.5 py-0.5 shadow-sm">
+                          <Star className="w-3 h-3" />
+                          {unplacedCount}
+                        </span>
+                      )}
+                    </div>
                     {item.name}
                   </Link>
                 );

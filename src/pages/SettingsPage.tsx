@@ -15,6 +15,7 @@ interface Profile {
   full_name: string | null;
   phone: string | null;
   wallet_address: string | null;
+  referral_id: string | null;
 }
 
 export default function SettingsPage() {
@@ -46,7 +47,7 @@ export default function SettingsPage() {
     try {
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, phone, wallet_address")
+        .select("id, full_name, phone, wallet_address, referral_id")
         .eq("user_id", user?.id)
         .single();
 
@@ -97,7 +98,16 @@ export default function SettingsPage() {
   };
 
   const copyReferralLink = () => {
-    const referralLink = `${window.location.origin}/auth?ref=${profile?.id}`;
+    if (!profile?.referral_id) {
+      toast({
+        variant: "destructive",
+        title: "Referral link unavailable",
+        description: "Your referral ID is missing. Please contact support.",
+      });
+      return;
+    }
+
+    const referralLink = `${window.location.origin}/auth?ref=${profile.referral_id}`;
     navigator.clipboard.writeText(referralLink);
     toast({
       title: "Copied!",
@@ -232,7 +242,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               <Input
                 type="text"
-                value={`${window.location.origin}/auth?ref=${profile?.id}`}
+                value={profile?.referral_id ? `${window.location.origin}/auth?ref=${profile.referral_id}` : ""}
                 readOnly
                 className="bg-muted/50 font-mono text-sm"
               />

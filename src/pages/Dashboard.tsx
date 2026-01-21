@@ -132,10 +132,49 @@ export default function Dashboard() {
         )
         .subscribe();
 
+      // Set up real-time subscription for new referrals
+      const referralsChannel = supabase
+        .channel('dashboard-new-referrals')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'referrals'
+          },
+          async (payload) => {
+            // Check if this referral is for the current user
+            const { data: myProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', user.id)
+              .single();
+
+            if (myProfile && payload.new.referrer_id === myProfile.id) {
+              console.log('New referral for current user:', payload);
+              
+              // Fetch the new user's email
+              const { data: newUserProfile } = await supabase
+                .from('profiles')
+                .select('email, referral_id')
+                .eq('id', payload.new.referred_user_id)
+                .single();
+              
+              toast({
+                title: "🎉 New Referral!",
+                description: `${newUserProfile?.email || 'Someone'} just signed up with your referral code! Visit the Referrals page to place them in your binary structure.`,
+                duration: 10000,
+              });
+            }
+          }
+        )
+        .subscribe();
+
       // Cleanup subscriptions on unmount
       return () => {
         supabase.removeChannel(announcementsChannel);
         supabase.removeChannel(profileChannel);
+        supabase.removeChannel(referralsChannel);
       };
     }
   }, [user]);

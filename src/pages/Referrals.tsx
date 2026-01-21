@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Star, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type ReferralRow = Tables<"referrals">;
 type ProfileRow = Tables<"profiles">;
@@ -119,7 +121,46 @@ export default function Referrals() {
     };
 
     run();
-  }, [user]);
+
+    // Real-time subscription for new referrals
+    if (user && myProfileId) {
+      const referralsChannel = supabase
+        .channel('new-referrals-notification')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'referrals',
+            filter: `referrer_id=eq.${myProfileId}`
+          },
+          async (payload) => {
+            console.log('New referral detected:', payload);
+            
+            // Fetch the new user's email
+            const { data: newUserProfile } = await supabase
+              .from('profiles')
+              .select('email, referral_id')
+              .eq('id', payload.new.referred_user_id)
+              .single();
+            
+            toast({
+              title: "🎉 New Referral!",
+              description: `${newUserProfile?.email || 'Someone'} just signed up with your referral code. Remember to place them in your binary structure!`,
+              duration: 8000,
+            });
+            
+            // Reload data to show the new referral
+            run();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(referralsChannel);
+      };
+    }
+  }, [user, myProfileId, toast]);
 
   const handlePlaceUser = async (userId: string, strategy: string) => {
     if (!myProfileId) {
@@ -191,7 +232,29 @@ export default function Referrals() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>My Referrals</CardTitle>
+              <div className="flex items-center gap-3">
+                <CardTitle>My Referrals</CardTitle>
+                {referrals.length > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    {referrals.length} Total
+                  </Badge>
+                )}
+                {referrals.filter(r => {
+                  const placement = placementsByUserId[r.referred_user_id];
+                  const hasValidPlacement = placement && placement.position && placement.position !== '' && placement.position !== '—';
+                  return !hasValidPlacement;
+                }).length > 0 && (
+                  <Badge variant="destructive" className="flex items-center gap-1 animate-pulse">
+                    <Star className="w-3 h-3 fill-current" />
+                    {referrals.filter(r => {
+                      const placement = placementsByUserId[r.referred_user_id];
+                      const hasValidPlacement = placement && placement.position && placement.position !== '' && placement.position !== '—';
+                      return !hasValidPlacement;
+                    }).length} Unplaced
+                  </Badge>
+                )}
+              </div>
               <CardDescription>
                 Users who signed up using your referral code.
               </CardDescription>
@@ -236,8 +299,13 @@ export default function Referrals() {
                   const isPlacing = placingUserId === r.referred_user_id;
 
                   return (
-                    <TableRow key={r.id}>
-                      <TableCell>{prof?.email ?? "—"}</TableCell>
+                    <TableRow key={r.id} className={!isPlaced ? "bg-yellow-50/50 dark:bg-yellow-950/20" : ""}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {!isPlaced && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+                          <span>{prof?.email ?? "—"}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>{prof?.referral_id ?? "—"}</TableCell>
                       <TableCell>{new Date(r.created_at).toLocaleString()}</TableCell>
                       <TableCell className="capitalize">{placement?.position ?? "—"}</TableCell>

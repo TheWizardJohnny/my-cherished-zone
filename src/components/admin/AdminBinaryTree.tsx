@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { RefreshCcw, GitBranch, ChevronUp, ZoomIn, ZoomOut } from "lucide-react";
+import { RefreshCcw, GitBranch, ChevronUp, ZoomIn, ZoomOut, Search, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 type Profile = Tables<"profiles">;
 type Placement = Tables<"placements">;
@@ -140,6 +141,8 @@ export function AdminBinaryTree() {
   const [topRootId, setTopRootId] = useState<string | null>(null);
   const [maxDepth, setMaxDepth] = useState(3);
   const [zoom, setZoom] = useState(100);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -188,14 +191,150 @@ export function AdminBinaryTree() {
 
   const positionedLevels = useMemo(() => buildPositionedLevels(rootNode, maxDepth), [rootNode, maxDepth]);
 
+  const currentUplineId = useMemo(() => {
+    if (!viewRootId) return null;
+    const currentPlacement = placements.find(p => p.user_id === viewRootId);
+    return currentPlacement?.upline_id || null;
+  }, [viewRootId, placements]);
+
+  const handleGoToUpline = () => {
+    if (currentUplineId) {
+      const uplineProfile = profiles[currentUplineId];
+      setViewRootId(currentUplineId);
+      toast({
+        title: "Navigated to upline",
+        description: `Now viewing: ${uplineProfile?.email || uplineProfile?.referral_id || "Upline user"}`,
+      });
+    }
+  };
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      toast({
+        title: "Search query required",
+        description: "Please enter an email address or referral ID to search.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSearching(true);
+    const query = searchQuery.trim().toLowerCase();
+    
+    // Search in profiles by email or referral_id
+    const foundProfile = Object.values(profiles).find(
+      (p) =>
+        p.email?.toLowerCase().includes(query) ||
+        p.referral_id?.toLowerCase() === query
+    );
+
+    if (foundProfile) {
+      // Check if this user has a placement
+      const hasPlacement = placements.some(p => p.user_id === foundProfile.id);
+      
+      if (hasPlacement) {
+        setViewRootId(foundProfile.id);
+        toast({
+          title: "User found!",
+          description: `Now viewing tree from: ${foundProfile.email || foundProfile.referral_id}`,
+        });
+      } else {
+        toast({
+          title: "User found but not placed",
+          description: `${foundProfile.email} exists but has no placement in the binary tree yet.`,
+          variant: "destructive",
+        });
+      }
+    } else {
+      toast({
+        title: "User not found",
+        description: `No user found with email or referral ID matching "${searchQuery}".`,
+        variant: "destructive",
+      });
+    }
+    
+    setIsSearching(false);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    if (topRootId) {
+      setViewRootId(topRootId);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
-          <GitBranch className="h-5 w-5 text-primary" />
-          <CardTitle>Binary Tree</CardTitle>
+      <CardHeader className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-primary" />
+            <CardTitle>Binary Tree</CardTitle>
+          </div>
+          {/* Navigation Buttons - Right Side */}
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGoToUpline}
+              disabled={!currentUplineId}
+              title={currentUplineId ? "View direct upline" : "No upline (at top of tree)"}
+              className="w-full"
+            >
+              <ChevronUp className="h-4 w-4 mr-1" />
+              Go to Upline
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => topRootId && setViewRootId(topRootId)}
+              disabled={!topRootId || viewRootId === topRootId}
+              className="w-full"
+            >
+              <ChevronUp className="h-4 w-4 mr-1" />
+              Back to Top
+            </Button>
+          </div>
         </div>
+        {/* Controls Row */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Search Box */}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by email or referral ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="pl-8 pr-8 w-64"
+              />
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={handleSearch}
+              disabled={isSearching || !searchQuery.trim()}
+            >
+              <Search className="h-4 w-4 mr-1" />
+              Find
+            </Button>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Depth</span>
             <div className="w-40">
@@ -239,15 +378,6 @@ export function AdminBinaryTree() {
           <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
             {loading ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             <span className="ml-2">Refresh</span>
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => topRootId && setViewRootId(topRootId)}
-            disabled={!topRootId || viewRootId === topRootId}
-          >
-            <ChevronUp className="h-4 w-4 mr-1" />
-            Back to Top
           </Button>
         </div>
       </CardHeader>
