@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,11 +74,7 @@ export function AdminWeeklyPools() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchPools();
-  }, []);
-
-  const fetchPools = async () => {
+  const fetchPools = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -88,16 +84,20 @@ export function AdminWeeklyPools() {
 
       if (error) throw error;
       setPools(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error fetching pools",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchPools();
+  }, [fetchPools]);
 
   const fetchPoolDetails = async (pool: WeeklyPool) => {
     try {
@@ -126,7 +126,7 @@ export function AdminWeeklyPools() {
         .from("commissions")
         .select(`
           *,
-          profiles:user_id (
+          profiles!commissions_user_id_fkey (
             email,
             full_name,
             wallet_address
@@ -139,10 +139,10 @@ export function AdminWeeklyPools() {
 
       if (commError) throw commError;
       setCommissions(commData || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error fetching pool details",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -167,10 +167,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error computing PV",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -196,10 +196,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error distributing pool",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -224,10 +224,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error approving commissions",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -253,10 +253,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error processing payments",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -281,10 +281,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error approving commission",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -309,10 +309,10 @@ export function AdminWeeklyPools() {
       if (selectedPool) {
         await fetchPoolDetails(selectedPool);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error processing payment",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
