@@ -446,11 +446,174 @@ export type Database = {
           },
         ]
       }
+      weekly_pools: {
+        Row: {
+          id: string
+          week_start: string
+          week_end: string
+          total_contributions: number
+          recycled_in: number
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          week_start: string
+          week_end: string
+          total_contributions?: number
+          recycled_in?: number
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          week_start?: string
+          week_end?: string
+          total_contributions?: number
+          recycled_in?: number
+          status?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      weekly_pool_contributions: {
+        Row: {
+          id: string
+          pool_id: string
+          order_id: string
+          buyer_id: string
+          amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          order_id: string
+          buyer_id: string
+          amount: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pool_id?: string
+          order_id?: string
+          buyer_id?: string
+          amount?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_pool_contributions_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_pool_contributions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_pool_contributions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_user_pv: {
+        Row: {
+          id: string
+          pool_id: string
+          user_id: string
+          left_pv: number
+          right_pv: number
+          carryover_left_in: number
+          carryover_right_in: number
+          matched_pv: number
+          carryover_left_out: number
+          carryover_right_out: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pool_id: string
+          user_id: string
+          left_pv?: number
+          right_pv?: number
+          carryover_left_in?: number
+          carryover_right_in?: number
+          matched_pv?: number
+          carryover_left_out?: number
+          carryover_right_out?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pool_id?: string
+          user_id?: string
+          left_pv?: number
+          right_pv?: number
+          carryover_left_in?: number
+          carryover_right_in?: number
+          matched_pv?: number
+          carryover_left_out?: number
+          carryover_right_out?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_user_pv_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_user_pv_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      approve_binary_commission: {
+        Args: { p_commission_id: string }
+        Returns: void
+      }
+      bulk_approve_binary_commissions: {
+        Args: { p_pool_id: string }
+        Returns: number
+      }
+      bulk_pay_binary_commissions: {
+        Args: { p_pool_id: string }
+        Returns: number
+      }
+      compute_weekly_user_pv: {
+        Args: { p_pool_id: string }
+        Returns: void
+      }
+      distribute_weekly_binary_pool: {
+        Args: { p_pool_id: string }
+        Returns: void
+      }
+      ensure_weekly_pool: {
+        Args: { p_ts: string }
+        Returns: string
+      }
       get_own_profile_id: { Args: never; Returns: string }
       get_placement_side_relative_to_referrer: {
         Args: {
@@ -466,6 +629,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      pay_binary_commission: {
+        Args: { p_commission_id: string }
+        Returns: void
+      }
       place_user_in_binary_tree: {
         Args: {
           user_profile_id: string

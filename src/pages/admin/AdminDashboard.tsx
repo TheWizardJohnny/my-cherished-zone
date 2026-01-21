@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   Megaphone,
   ShoppingCart,
-  Settings
+  Settings,
+  Waves
 } from "lucide-react";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminProducts } from "@/components/admin/AdminProducts";
@@ -25,6 +26,7 @@ import { AdminAnnouncements } from "@/components/admin/AdminAnnouncements";
 import { AdminOrders } from "@/components/admin/AdminOrders";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { AdminBinaryTree } from "@/components/admin/AdminBinaryTree";
+import { AdminWeeklyPools } from "@/components/admin/AdminWeeklyPools";
 import { GitBranch } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -157,7 +159,7 @@ export default function AdminDashboard() {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
@@ -186,6 +188,10 @@ export default function AdminDashboard() {
               <GitBranch className="h-4 w-4" />
               <span className="hidden sm:inline">BinaryTree</span>
             </TabsTrigger>
+            <TabsTrigger value="pools" className="flex items-center gap-2">
+              <Waves className="h-4 w-4" />
+              <span className="hidden sm:inline">Weekly Pools</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -212,6 +218,9 @@ export default function AdminDashboard() {
           </TabsContent>
           <TabsContent value="binary">
             <AdminBinaryTree />
+          </TabsContent>
+          <TabsContent value="pools">
+            <AdminWeeklyPools />
           </TabsContent>
           <TabsContent value="settings">
             <AdminSettings />
