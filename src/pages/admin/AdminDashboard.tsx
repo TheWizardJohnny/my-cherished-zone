@@ -18,7 +18,8 @@ import {
   Settings,
   Waves,
   Timer,
-  BarChart3
+  BarChart3,
+  Target
 } from "lucide-react";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminProducts } from "@/components/admin/AdminProducts";
@@ -32,6 +33,8 @@ import { AdminWeeklyPools } from "@/components/admin/AdminWeeklyPools";
 import { AdminAutoPlacement } from "@/components/admin/AdminAutoPlacement";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { GitBranch } from "lucide-react";
+import { AdminPV } from "@/components/admin/AdminPV";
+import { AdminQualificationPanel } from "@/components/admin/AdminPV";
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -163,7 +166,7 @@ export default function AdminDashboard() {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w/full grid-cols-11">
+          <TabsList className="grid w/full grid-cols-12">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Users</span>
@@ -188,13 +191,17 @@ export default function AdminDashboard() {
               <Megaphone className="h-4 w-4" />
               <span className="hidden sm:inline">Announcements</span>
             </TabsTrigger>
-            <TabsTrigger value="binary" className="flex items-center gap-2">
-              <GitBranch className="h-4 w-4" />
-              <span className="hidden sm:inline">BinaryTree</span>
+            <TabsTrigger value="pv" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              <span className="hidden sm:inline">PV</span>
             </TabsTrigger>
-            <TabsTrigger value="pools" className="flex items-center gap-2">
+            <TabsTrigger value="binarytree" className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4" />
+              <span className="hidden sm:inline">Binary Tree</span>
+            </TabsTrigger>
+            <TabsTrigger value="qualification" className="flex items-center gap-2">
               <Waves className="h-4 w-4" />
-              <span className="hidden sm:inline">Weekly Pools</span>
+              <span className="hidden sm:inline">Qualification</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -228,11 +235,14 @@ export default function AdminDashboard() {
           <TabsContent value="announcements">
             <AdminAnnouncements />
           </TabsContent>
-          <TabsContent value="binary">
-            <AdminBinaryTree />
+          <TabsContent value="pv">
+            <AdminPV />
           </TabsContent>
-          <TabsContent value="pools">
-            <AdminWeeklyPools />
+          <TabsContent value="qualification">
+            <AdminQualificationPanel />
+          </TabsContent>
+          <TabsContent value="binarytree">
+            <AdminBinaryTree />
           </TabsContent>
           <TabsContent value="analytics">
             <AdminAnalytics />

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { UserPVPanel, UserQualificationPanel } from "@/components/dashboard/UserPVPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,85 @@ interface Commission {
 }
 
 export default function Dashboard() {
+    // Fetch data for dashboard
+    const fetchData = async () => {
+      try {
+        // Fetch profile
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user?.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+
+          // Fetch all commissions for analytics
+          const { data: allCommissionsData } = await supabase
+            .from("commissions")
+            .select("*")
+            .eq("user_id", profileData.id)
+            .order("created_at", { ascending: false });
+
+          if (allCommissionsData) {
+            setRecentCommissions(allCommissionsData.slice(0, 5));
+            const total = allCommissionsData
+              .filter((c) => c.status === "paid" || c.status === "approved")
+              .reduce((sum, c) => sum + Number(c.amount), 0);
+            setTotalEarnings(total);
+            const pending = allCommissionsData
+              .filter((c) => c.status === "pending")
+              .reduce((sum, c) => sum + Number(c.amount), 0);
+            setPendingCommissions(pending);
+            const byType: Record<string, number> = {};
+            allCommissionsData
+              .filter((c) => c.status === "paid" || c.status === "approved")
+              .forEach((c) => {
+                const type = c.type || "other";
+                byType[type] = (byType[type] || 0) + Number(c.amount);
+              });
+            setCommissionsByType(byType);
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const recentPaidCommissions = allCommissionsData.filter(
+              (c) => (c.status === "paid" || c.status === "approved") &&
+                     new Date(c.created_at) >= thirtyDaysAgo
+            );
+            const earningsByDate: Record<string, number> = {};
+            recentPaidCommissions.forEach((c) => {
+              const date = new Date(c.created_at).toISOString().slice(0, 10);
+              earningsByDate[date] = (earningsByDate[date] || 0) + Number(c.amount);
+            });
+            const sortedEarnings = Object.entries(earningsByDate)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([date, amount]) => ({ date, amount }));
+            setEarningsData(sortedEarnings);
+          }
+
+          // Fetch direct referrals count
+          const { count } = await supabase
+            .from("referrals")
+            .select("*", { count: "exact", head: false })
+            .eq("referrer_id", profileData.id);
+          setDirectReferralsCount(count || 0);
+        }
+
+        // Fetch announcements
+        const { data: announcementsData } = await supabase
+          .from("announcements")
+          .select("*")
+          .eq("active", true)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        if (announcementsData) {
+          setAnnouncements(announcementsData);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -104,240 +184,16 @@ export default function Dashboard() {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
-    if (user) {
-      fetchData();
-      
-      // Set up real-time subscription for announcements
-      const announcementsChannel = supabase
-        .channel('announcements-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'announcements',
-            filter: 'active=eq.true'
-          },
-          (payload) => {
-            console.log('Announcement changed:', payload);
-            
-            if (payload.eventType === 'INSERT') {
-              setAnnouncements((prev) => [payload.new as Announcement, ...prev].slice(0, 3));
-            } else if (payload.eventType === 'UPDATE') {
-              setAnnouncements((prev) =>
-                prev.map((a) => (a.id === payload.new.id ? payload.new as Announcement : a))
-              );
-            } else if (payload.eventType === 'DELETE') {
-              setAnnouncements((prev) => prev.filter((a) => a.id !== payload.old.id));
-            }
-          }
-        )
-        .subscribe();
+// ...existing code...
 
-      // Set up real-time subscription for profile changes
-      const profileChannel = supabase
-        .channel('dashboard-profile-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'profiles',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            console.log('Profile changed:', payload);
-            
-            // Check if rank changed
-            if (payload.old.rank !== payload.new.rank) {
-              toast({
-                title: "🏆 Rank Advanced!",
-                description: `Congratulations! You've been promoted to ${payload.new.rank}! Your hard work is paying off.`,
-                duration: 15000,
-              });
-            }
-            
-            // Update profile with new data (especially referral_id and sponsor_id)
-            setProfile(payload.new as Profile);
-          }
-        )
-        .subscribe();
+useEffect(() => {
+  if (user) {
+    fetchData();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user]);
 
-      // Set up real-time subscription for new referrals
-      const referralsChannel = supabase
-        .channel('dashboard-new-referrals')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'referrals'
-          },
-          async (payload) => {
-            // Check if this referral is for the current user
-            const { data: myProfile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('user_id', user.id)
-              .single();
-
-            if (myProfile && payload.new.referrer_id === myProfile.id) {
-              console.log('New referral for current user:', payload);
-              
-              // Fetch the new user's email
-              const { data: newUserProfile } = await supabase
-                .from('profiles')
-                .select('email, referral_id')
-                .eq('id', payload.new.referred_user_id)
-                .single();
-              
-              toast({
-                title: "🎉 New Referral!",
-                description: `${newUserProfile?.email || 'Someone'} just signed up with your referral code! Visit the Referrals page to place them in your binary structure.`,
-                duration: 10000,
-              });
-            }
-          }
-        )
-        .subscribe();
-
-      // Set up real-time subscription for new commissions
-      const commissionsChannel = supabase
-        .channel('dashboard-new-commissions')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'commissions'
-          },
-          async (payload) => {
-            // Check if this commission is for the current user
-            const { data: myProfile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('user_id', user.id)
-              .single();
-
-            if (myProfile && payload.new.user_id === myProfile.id) {
-              console.log('New commission for current user:', payload);
-              
-              toast({
-                title: "💰 Commission Earned!",
-                description: `You earned $${Number(payload.new.amount || 0).toFixed(2)} from ${payload.new.type} commission!`,
-                duration: 8000,
-              });
-              
-              // Refresh data to show new commission
-              fetchData();
-            }
-          }
-        )
-        .subscribe();
-
-      // Cleanup subscriptions on unmount
-      return () => {
-        supabase.removeChannel(announcementsChannel);
-        supabase.removeChannel(profileChannel);
-        supabase.removeChannel(referralsChannel);
-        supabase.removeChannel(commissionsChannel);
-      };
-    }
-  }, [user]);
-
-  const fetchData = async () => {
-    try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user?.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-
-        // Fetch all commissions for analytics
-        const { data: allCommissionsData } = await supabase
-          .from("commissions")
-          .select("*")
-          .eq("user_id", profileData.id)
-          .order("created_at", { ascending: false });
-
-        if (allCommissionsData) {
-          // Recent commissions for display
-          setRecentCommissions(allCommissionsData.slice(0, 5));
-          
-          // Calculate total paid earnings
-          const total = allCommissionsData
-            .filter((c) => c.status === "paid" || c.status === "approved")
-            .reduce((sum, c) => sum + Number(c.amount), 0);
-          setTotalEarnings(total);
-          
-          // Calculate pending commissions
-          const pending = allCommissionsData
-            .filter((c) => c.status === "pending")
-            .reduce((sum, c) => sum + Number(c.amount), 0);
-          setPendingCommissions(pending);
-          
-          // Group by type
-          const byType: Record<string, number> = {};
-          allCommissionsData
-            .filter((c) => c.status === "paid" || c.status === "approved")
-            .forEach((c) => {
-              const type = c.type || "other";
-              byType[type] = (byType[type] || 0) + Number(c.amount);
-            });
-          setCommissionsByType(byType);
-          
-          // Earnings over last 30 days
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          const recentPaidCommissions = allCommissionsData.filter(
-            (c) => (c.status === "paid" || c.status === "approved") &&
-                   new Date(c.created_at) >= thirtyDaysAgo
-          );
-          
-          // Group by date
-          const earningsByDate: Record<string, number> = {};
-          recentPaidCommissions.forEach((c) => {
-            const date = new Date(c.created_at).toISOString().slice(0, 10);
-            earningsByDate[date] = (earningsByDate[date] || 0) + Number(c.amount);
-          });
-          
-          const sortedEarnings = Object.entries(earningsByDate)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([date, amount]) => ({ date, amount }));
-          setEarningsData(sortedEarnings);
-        }
-        
-        // Fetch direct referrals count
-        const { data: referralsData, count } = await supabase
-          .from("referrals")
-          .select("*", { count: "exact", head: false })
-          .eq("referrer_id", profileData.id);
-        
-        setDirectReferralsCount(count || 0);
-      }
-
-      // Fetch announcements
-      const { data: announcementsData } = await supabase
-        .from("announcements")
-        .select("*")
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      if (announcementsData) {
-        setAnnouncements(announcementsData);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+// ...existing code...
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -666,6 +522,14 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* PV Overview */}
+        {profile && (
+          <div className="grid grid-cols-1 mb-4">
+            <UserPVPanel profileId={profile.id} />
+            <UserQualificationPanel userId={profile.id} />
+          </div>
+        )}
 
         {/* Earnings Analytics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

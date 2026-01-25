@@ -168,7 +168,7 @@ export class BlockchainVerificationService {
       if (result.verified) {
         // TX format is valid - mark as verified
         newStatus = "verified";
-        updateData.payment_status = "paid";
+          updateData.payment_status = "completed";
         updateData.tx_verified_at = new Date().toISOString();
         console.log(`[VERIFY] TX valid, setting to verified`);
       } else if (!result.success) {

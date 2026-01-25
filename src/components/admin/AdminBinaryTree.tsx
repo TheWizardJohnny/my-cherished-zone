@@ -143,6 +143,10 @@ export function AdminBinaryTree() {
   const [zoom, setZoom] = useState(100);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  // Pan and drag state (must be at top level)
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [lastMouse, setLastMouse] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     loadData();
